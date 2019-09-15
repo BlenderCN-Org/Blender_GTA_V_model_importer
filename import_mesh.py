@@ -4,13 +4,7 @@ import bmesh
 import re
 from copy import deepcopy
 
-from mathutils import (
-        Euler,
-        Matrix,
-        Vector,
-        )
-
-
+from mathutils import (Vector)
 
 
 def getNameFromFile(filepath):
@@ -21,7 +15,6 @@ opening_bracket = re.compile(r"\t{3}\{+")
 closing_bracket = re.compile(r"\t{3}\}+")
 index_header_pattern = re.compile(r"\s+ Indices \s+ (?P<index_count>\d+)", re.VERBOSE)
 index_line_pattern = re.compile(r"\t{4}(?P<indices>(?:\d+[^\.]){1,15})",re.VERBOSE)
-
 
 vertex_header_pattern = re.compile(r"\s+ Vertices \s+ (?P<vertex_count>\d+)", re.VERBOSE)
 
@@ -70,7 +63,6 @@ def load_Mesh(filepath):
                 if match and read_indices:
                     match_i = match.group("indices")
                     temp_list = list(int(i) for i in match_i.split())
-                    # print(temp_list)
                     Indices.extend(temp_list)
             if not read_indices and not read_vertices:
                 match = re.search(vertex_header_pattern, line)
@@ -79,6 +71,7 @@ def load_Mesh(filepath):
                     read_vertices = True
                     Vertices = []
             elif read_vertices:
+                # read vertices
                 if closing_bracket.match(line):
                     read_vertices = False
                     Mesh.append(deepcopy(Indices))
@@ -90,8 +83,8 @@ def load_Mesh(filepath):
                     weights = Vector(float(p) for p in match.group("weights").split())
                     normal = Vector(float(p) for p in match.group("normal").split())
                     uv = Vector(float(p) for p in match.group("uv").split())
+                    uv[1] = 1.0 - uv[1]
                     Vertices.append((pos, weights, normal, uv))
-                    # print(match.group("pos"))
                     # print("pos: {0}, weights: {1}, normal: {2}, uv:{3}".format(match.group("pos"), match.group("weights"),match.group("normal"),match.group("uv")))
 
     # create meshes
@@ -101,10 +94,23 @@ def load_Mesh(filepath):
             f = i*3
             faces.append([m[0][f], m[0][f+1], m[0][f+2]])
         name = getNameFromFile(filepath)+str(num)
-        Mesh_data = bpy.data.meshes.new(name)
+        mesh = bpy.data.meshes.new(name)
         verts = list(v[0] for v in m[1])
-        Mesh_data.from_pydata(verts, (), faces)
-        Obj = bpy.data.objects.new(name, Mesh_data)
+        mesh.from_pydata(verts, (), faces)
+        mesh.validate()
+         # add uvs
+        mesh.uv_layers.new(name="UVMap")
+        uvlayer = mesh.uv_layers.active.data
+        mesh.calc_loop_triangles()
+
+        for i, lt in enumerate(mesh.loop_triangles):
+            # set the shading of all polygons to smooth
+            mesh.polygons[i].use_smooth = True
+            for loop_index in lt.loops:
+                # set uv coordinates
+                uvlayer[loop_index].uv = m[1][mesh.loops[loop_index].vertex_index][3]
+
+        Obj = bpy.data.objects.new(name, mesh)
         bpy.context.scene.collection.objects.link(Obj)
 
 
