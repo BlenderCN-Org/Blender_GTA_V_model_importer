@@ -23,7 +23,7 @@ vertex_line_pattern = re.compile(r"""
 \t{4}
 (?P<pos>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){3}) \/\s
 (?P<weights>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){4}) \/\s
-(?P<undef1>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){4}) \/\s
+(?P<bone_indices>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){4}) \/\s
 (?P<normal>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){3}) \/\s
 (?P<undef2>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){4}) \/\s
 (?P<uv>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){2}) \/\s
@@ -88,12 +88,13 @@ def load_Mesh(filepath):
                     # print("pos: {0}, weights: {1}, normal: {2}, uv:{3}".format(match.group("pos"), match.group("weights"),match.group("normal"),match.group("uv")))
 
     # create meshes
+    base_name = getNameFromFile(filepath)
     for num, m in enumerate(Meshes):
         faces = []
         for i in range(int(len(m[0])/3)):
             f = i*3
             faces.append([m[0][f], m[0][f+1], m[0][f+2]])
-        name = getNameFromFile(filepath)+str(num)
+        name = base_name + str(num)
         mesh = bpy.data.meshes.new(name)
         verts = list(v[0] for v in m[1])
         mesh.from_pydata(verts, (), faces)
@@ -110,8 +111,15 @@ def load_Mesh(filepath):
                 # set uv coordinates
                 uvlayer[loop_index].uv = m[1][mesh.loops[loop_index].vertex_index][3]
 
+
+        mat = bpy.data.materials.new(name=name)
+        mesh.materials.append(mat)
         Obj = bpy.data.objects.new(name, mesh)
         bpy.context.scene.collection.objects.link(Obj)
+        Obj.select_set(True)
+        bpy.context.view_layer.objects.active = Obj
+    bpy.ops.object.join()
+    bpy.context.view_layer.objects.active.name = base_name
 
 
 def load(operator, context, filepath=""):
