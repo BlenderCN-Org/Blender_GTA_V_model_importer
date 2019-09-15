@@ -26,8 +26,8 @@ vertex_line_pattern = re.compile(r"""
 (?P<bone_indices>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){4}) \/\s
 (?P<normal>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){3}) \/\s
 (?P<undef2>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){4}) \/\s
-(?P<uv>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){2}) \/\s
-(?P<undef3>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){4})
+(?P<uv>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){2}) (?:\/\s
+(?P<undef3>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){4}))?
 """, re.VERBOSE)
 
 
@@ -45,6 +45,8 @@ def load_Mesh(filepath):
     skinned = False
     bone_count = 0
     weights = []
+    index_counter = 0
+    vertex_counter = 0
     with open(filepath, 'r') as file:
         for line in file.readlines():
             if not read_indices:
@@ -53,10 +55,12 @@ def load_Mesh(filepath):
                 if match:
                     print("index count: {0}".format(match.group("index_count")))
                     read_indices = True
+                    index_counter = 0
                     Mesh = []
                     Indices = []
             elif read_indices:
                 if closing_bracket.match(line):
+                    print("end read indices")
                     read_indices = False
                 # reading the indices
                 match = index_line_pattern.match(line)
@@ -69,14 +73,16 @@ def load_Mesh(filepath):
                 if match:
                     print("vertex count: {0}".format(match.group("vertex_count")))
                     read_vertices = True
+                    vertex_counter = 0
                     Vertices = []
             elif read_vertices:
                 # read vertices
                 if closing_bracket.match(line):
                     read_vertices = False
-                    Mesh.append(deepcopy(Indices))
-                    Mesh.append(deepcopy(Vertices))
-                    Meshes.append(deepcopy(Mesh))
+                    print("end read vertices. counted: {0}".format(vertex_counter))
+                    Mesh.append(Indices)
+                    Mesh.append(Vertices)
+                    Meshes.append(Mesh)
                 match = vertex_line_pattern.match(line)
                 if match and read_vertices:
                     pos = Vector(float(p) for p in match.group("pos").split())
@@ -85,44 +91,58 @@ def load_Mesh(filepath):
                     uv = Vector(float(p) for p in match.group("uv").split())
                     uv[1] = 1.0 - uv[1]
                     Vertices.append((pos, weights, normal, uv))
+                    vertex_counter += 1
                     # print("pos: {0}, weights: {1}, normal: {2}, uv:{3}".format(match.group("pos"), match.group("weights"),match.group("normal"),match.group("uv")))
 
     # create meshes
     base_name = getNameFromFile(filepath)
     for num, m in enumerate(Meshes):
-        faces = []
-        for i in range(int(len(m[0])/3)):
-            f = i*3
-            faces.append([m[0][f], m[0][f+1], m[0][f+2]])
-        name = base_name + str(num)
-        mesh = bpy.data.meshes.new(name)
-        verts = list(v[0] for v in m[1])
-        mesh.from_pydata(verts, (), faces)
-        mesh.validate()
-         # add uvs
-        mesh.uv_layers.new(name="UVMap")
-        uvlayer = mesh.uv_layers.active.data
-        mesh.calc_loop_triangles()
+        if m[1] and m[0]:
+            name = base_name + str(num)
+            print("create mesh: {0}".format(name))
+            faces = []
 
-        for i, lt in enumerate(mesh.loop_triangles):
-            # set the shading of all polygons to smooth
-            mesh.polygons[i].use_smooth = True
-            for loop_index in lt.loops:
-                # set uv coordinates
-                uvlayer[loop_index].uv = m[1][mesh.loops[loop_index].vertex_index][3]
+            for i in range(int(len(m[0])/3)):
+                f = i*3
+                faces.append([m[0][f], m[0][f+1], m[0][f+2]])
+            mesh = bpy.data.meshes.new(name)
+            verts = list(v[0] for v in m[1])
+            mesh.from_pydata(verts, (), faces)
+            print("mesh creation done")
+
+            if not mesh.validate():
+                # add uvs
+                print("create uvs")
+                mesh.uv_layers.new(name="UVMap")
+                uvlayer = mesh.uv_layers.active.data
+                mesh.calc_loop_triangles()
+
+                for i, lt in enumerate(mesh.loop_triangles):
+                    # set the shading of all polygons to smooth
+                    mesh.polygons[i].use_smooth = True
+                    for loop_index in lt.loops:
+                        # set uv coordinates
+                        uvlayer[loop_index].uv = m[1][mesh.loops[loop_index].vertex_index][3]
 
 
-        mat = bpy.data.materials.new(name=name)
-        mesh.materials.append(mat)
-        Obj = bpy.data.objects.new(name, mesh)
-        bpy.context.scene.collection.objects.link(Obj)
-        Obj.select_set(True)
-        bpy.context.view_layer.objects.active = Obj
+                mat = bpy.data.materials.new(name=name)
+                mesh.materials.append(mat)
+                Obj = bpy.data.objects.new(name, mesh)
+                bpy.context.scene.collection.objects.link(Obj)
+                Obj.select_set(True)
+                bpy.context.view_layer.objects.active = Obj
+            else:
+                print("mesh validation failed")
+        else:
+            print("missing vertex data")
+    print("joint meshes")
     bpy.ops.object.join()
     bpy.context.view_layer.objects.active.name = base_name
 
 
 def load(operator, context, filepath=""):
     print("importing: {0}".format(filepath))
+    if bpy.context.object:
+        bpy.context.object.select_set(False)
     load_Mesh(filepath)
     return {'FINISHED'}

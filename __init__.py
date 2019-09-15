@@ -61,7 +61,7 @@ class ImportOTD(bpy.types.Operator, ImportHelper):
 
 # Add to a menu
 def menu_func_import(self, context):
-    self.layout.operator(ImportOTD.bl_idname, text="OTD Mesh (.mesh)")
+    self.layout.operator(ImportOTD.bl_idname, text="GTA V Model (.mesh)")
 
 
 def register():
