@@ -133,6 +133,7 @@ def load_Mesh(filepath):
             print("mesh creation done")
 
             if not mesh.validate():
+                Obj = bpy.data.objects.new(name, mesh)
                 # add uvs
                 print("create uvs")
                 mesh.uv_layers.new(name="UVMap")
@@ -144,6 +145,17 @@ def load_Mesh(filepath):
                         # set uv coordinates
                         uvlayer[loop_index].uv = m[1][mesh.loops[loop_index].vertex_index][3]
                         normals.append(m[1][mesh.loops[loop_index].vertex_index][2])
+                        # add bone weights
+                        if skinned:
+                            for i, vg in enumerate(m[1][mesh.loops[loop_index].vertex_index][4]):
+                                if not str(vg) in Obj.vertex_groups:
+                                    group = Obj.vertex_groups.new(name=str(vg))
+                                else:
+                                    group = Obj.vertex_groups[str(vg)]
+                                weight = m[1][mesh.loops[loop_index].vertex_index][1][i]
+                                if weight > 0.0:
+                                    group.add([mesh.loops[loop_index].vertex_index], weight, 'REPLACE' )
+
 
                 # normal custom verts on each axis
                 mesh.use_auto_smooth = True
@@ -151,7 +163,6 @@ def load_Mesh(filepath):
 
                 mat = bpy.data.materials.new(name=name)
                 mesh.materials.append(mat)
-                Obj = bpy.data.objects.new(name, mesh)
                 bpy.context.scene.collection.objects.link(Obj)
                 Obj.select_set(True)
                 bpy.context.view_layer.objects.active = Obj
