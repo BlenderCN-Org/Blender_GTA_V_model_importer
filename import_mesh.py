@@ -116,15 +116,18 @@ def load_Mesh(filepath):
                 mesh.uv_layers.new(name="UVMap")
                 uvlayer = mesh.uv_layers.active.data
                 mesh.calc_loop_triangles()
-
+                normals = []
                 for i, lt in enumerate(mesh.loop_triangles):
                     # set the shading of all polygons to smooth
                     mesh.polygons[i].use_smooth = True
                     for loop_index in lt.loops:
                         # set uv coordinates
                         uvlayer[loop_index].uv = m[1][mesh.loops[loop_index].vertex_index][3]
+                        normals.append(m[1][mesh.loops[loop_index].vertex_index][2])
 
-
+                mesh.use_auto_smooth = True
+                # normal custom verts on each axis
+                mesh.normals_split_custom_set(normals)
                 mat = bpy.data.materials.new(name=name)
                 mesh.materials.append(mat)
                 Obj = bpy.data.objects.new(name, mesh)
