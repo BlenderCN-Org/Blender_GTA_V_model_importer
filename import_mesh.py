@@ -4,18 +4,123 @@ import bmesh
 import re
 from copy import deepcopy
 
-from mathutils import (Vector)
+from mathutils import (Vector, Quaternion, Matrix)
 
 
 def getNameFromFile(filepath):
     return os.path.basename(filepath)
 
-opening_bracket = re.compile(r"\t{3}\{+")
-closing_bracket = re.compile(r"\t{3}\}+")
+opening_bracket = re.compile(r"\t+\{+")
+closing_bracket = re.compile(r"\t+\}+")
 
+
+def find_skel_file(mesh_path):
+    folder = os.path.dirname(os.path.abspath(mesh_path))
+    for file in os.listdir(folder):
+        if file.endswith(".skel"):
+            return os.path.join(folder, file)
 
 def load_skel(filepath):
-    pass
+    # skeleton pattern
+    DataCRC_pattern = re.compile(r"\t+ DataCRC \s+ (?P<DataCRC>\d+)", re.VERBOSE)
+    NumBones_pattern = re.compile(r"\t+ NumBones \s+ (?P<NumBones>\d+)", re.VERBOSE)
+    Bone_header_pattern = re.compile(r"\t+ Bone \s+ (?P<bone_name>[^\s]+) \s+ (?P<bone_id>\d+)", re.VERBOSE)
+    MirrorBoneId_pattern = re.compile(r"\t+ MirrorBoneId \s+ (?P<MirrorBoneId>\d+)", re.VERBOSE)
+    Flags_pattern = re.compile(r"\t+ Flags (?P<flags>(\s+([^\s]+)){1,6})", re.VERBOSE)
+    RotationQuaternion_pattern = re.compile(r"\t+ RotationQuaternion (?P<RotationQuaternion>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){1,6})", re.VERBOSE)
+    LocalOffset_pattern = re.compile(r"\t+ LocalOffset (?P<LocalOffset>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){1,6})", re.VERBOSE)
+    Scale_pattern = re.compile(r"\t+ Scale (?P<Scale>(?:(?:[\-\+]?\d*(?:\.\d*)?)\s+){1,6})", re.VERBOSE)
+    Children_pattern = re.compile(r"\t+ Children \s+ (?P<Children>\d+)", re.VERBOSE)
+
+
+    def add_bone(lines, line_n, id, armature, parent=None):
+        bone = {'id': id, 'children': {}}
+
+        line_number = line_n
+        while line_number < len(lines):
+
+            RotQuat_match = RotationQuaternion_pattern.match(lines[line_number])
+            if RotQuat_match:
+                bone["RotationQuaternion"] = tuple(float(r) for r in RotQuat_match.group("RotationQuaternion").split())
+                line_number += 1
+                continue
+
+            LocOff_match = LocalOffset_pattern.match(lines[line_number])
+            if LocOff_match:
+                bone["LocalOffset"] = Vector(float(l) for l in LocOff_match.group("LocalOffset").split())
+                line_number += 1
+                continue
+
+            Scale_match = Scale_pattern.match(lines[line_number])
+            if Scale_match:
+                bone["Scale"] = Vector(float(s) for s in Scale_match.group("Scale").split())
+                line_number += 1
+                continue
+
+            bone_match = Bone_header_pattern.match(lines[line_number])
+            if bone_match:
+                bone_id = bone_match.group("bone_id")
+                bone_name = bone_match.group("bone_name")
+                line_number += 1
+                b_bone = armature.edit_bones.new(bone_name)
+                b_bone.head = (0,0,0)
+                b_bone.tail = (0,0.2,0)
+                b_bone.use_inherit_rotation = False
+                b_bone.use_local_location = False
+                q = Quaternion(bone["RotationQuaternion"])
+                b_bone.matrix = q.to_matrix().to_4x4()
+                b_bone.translate(bone["LocalOffset"])
+                if parent:
+                    b_bone.parent = parent
+                line_number, child = add_bone(lines, line_number, bone_id, armature, b_bone)
+                bone["children"][bone_name] = child
+                continue
+
+            end_match = closing_bracket.match(lines[line_number])
+            if end_match:
+                line_number += 1
+                return line_number, bone
+
+            line_number += 1
+
+    skelett = {}
+    num_bones = 0
+    data_crc = 0
+    arma = bpy.data.armatures.new(os.path.basename(filepath))
+    Obj = bpy.data.objects.new(os.path.basename(filepath), arma)
+    bpy.context.scene.collection.objects.link(Obj)
+    bpy.context.view_layer.objects.active = Obj
+    bpy.ops.object.mode_set(mode='EDIT', toggle=False)
+    with open(filepath, 'r') as file:
+        lines = file.readlines()
+        line_number = 0
+        while line_number < len(lines):
+        # for line in lines:
+            num_bones_match = NumBones_pattern.match(lines[line_number])
+            if num_bones_match:
+                num_bones = int(num_bones_match.group("NumBones"))
+                line_number += 1
+                continue
+            dat_match = DataCRC_pattern.match(lines[line_number])
+            if dat_match:
+                data_crc = int(dat_match.group("DataCRC"))
+                line_number += 1
+                continue
+            bone_match = Bone_header_pattern.match(lines[line_number])
+            if bone_match:
+                bone_id = bone_match.group("bone_id")
+                bone_name = bone_match.group("bone_name")
+                line_number += 1
+                line_number, skelett[bone_name] = add_bone(lines, line_number, bone_id, arma)
+                continue
+            line_number += 1
+
+    bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+    return Obj
+    # print(skelett)
+
+
+
 
 
 def load_Mesh(filepath):
@@ -72,9 +177,9 @@ def load_Mesh(filepath):
                     continue
 
                 # find beginning of vertex list
-                verte_header_match = re.search(vertex_header_pattern, line)
-                if verte_header_match:
-                    print("vertex count: {0}".format(verte_header_match.group("vertex_count")))
+                vertex_header_match = vertex_header_pattern.match(line)
+                if vertex_header_match:
+                    print("vertex count: {0}".format(vertex_header_match.group("vertex_count")))
                     read_vertices = True
                     vertex_counter = 0
                     Vertices = []
@@ -200,11 +305,17 @@ def load_Mesh(filepath):
     print("joint meshes")
     bpy.ops.object.join()
     bpy.context.view_layer.objects.active.name = base_name
+    return bpy.context.view_layer.objects.active
 
 
 def load(operator, context, filepath=""):
     print("importing: {0}".format(filepath))
-    if bpy.context.object:
-        bpy.context.object.select_set(False)
-    load_Mesh(filepath)
+    bpy.context.view_layer.objects.active = None
+    for obj in bpy.data.objects:
+        obj.select_set(False)
+    mesh = load_Mesh(filepath)
+    skel = load_skel(find_skel_file(filepath))
+    mod = mesh.modifiers.new("armature", 'ARMATURE')
+    mod.object = skel
+    mesh.parent = skel
     return {'FINISHED'}
