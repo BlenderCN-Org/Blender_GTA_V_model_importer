@@ -47,9 +47,9 @@ from bpy_extras.io_utils import (
 
 
 
-class ImportOTD(bpy.types.Operator, ImportHelper):
-    """Import from OTD file format (.otd)"""
-    bl_idname = "import_scene.otd"
+class ImportGTA(bpy.types.Operator, ImportHelper):
+
+    bl_idname = "import_scene.gta"
     bl_label = 'Import mesh'
     bl_options = {'UNDO'}
     filename_ext = ".mesh"
@@ -60,7 +60,7 @@ class ImportOTD(bpy.types.Operator, ImportHelper):
             )
 
     import_armature: BoolProperty(
-            name="import_armature",
+            name="import armature",
             description="Import Armatures if existing",
             default=True,
             )
@@ -71,16 +71,16 @@ class ImportOTD(bpy.types.Operator, ImportHelper):
 
 # Add to a menu
 def menu_func_import(self, context):
-    self.layout.operator(ImportOTD.bl_idname, text="GTA V Model (.mesh)")
+    self.layout.operator(ImportGTA.bl_idname, text="GTA V Model (.mesh)")
 
 
 def register():
-    bpy.utils.register_class(ImportOTD)
+    bpy.utils.register_class(ImportGTA)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
 
 def unregister():
-    bpy.utils.unregister_class(ImportOTD)
+    bpy.utils.unregister_class(ImportGTA)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
 
 
