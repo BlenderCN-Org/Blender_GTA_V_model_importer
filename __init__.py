@@ -50,10 +50,20 @@ from bpy_extras.io_utils import (
 class ImportOTD(bpy.types.Operator, ImportHelper):
     """Import from OTD file format (.otd)"""
     bl_idname = "import_scene.otd"
-    bl_label = 'Import otd'
+    bl_label = 'Import mesh'
     bl_options = {'UNDO'}
-
     filename_ext = ".mesh"
+
+    filter_glob: StringProperty(
+            default="*.mesh",
+            options={'HIDDEN'}
+            )
+
+    import_armature: BoolProperty(
+            name="import_armature",
+            description="Import Armatures if existing",
+            default=True,
+            )
 
     def execute(self, context):
         keywords = self.as_keywords()
