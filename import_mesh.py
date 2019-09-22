@@ -1,9 +1,6 @@
 import bpy
 import os
-import bmesh
 import re
-import json
-from copy import deepcopy
 
 from mathutils import (Vector, Quaternion, Matrix)
 
@@ -132,9 +129,6 @@ def load_skel(filepath):
 
     bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
     return Obj
-
-
-
 
 
 def load_Mesh(filepath):
