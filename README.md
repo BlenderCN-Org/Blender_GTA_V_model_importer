@@ -1,4 +1,4 @@
-# Blender_GTA_V_model_importer
+# Blender GTA V model importer
 import GTA V models to Blender
 
 ## Mesh import:
@@ -10,6 +10,8 @@ import GTA V models to Blender
 ## How to use:
 * save addon in addon folder and enable it
 * go to: File->Import->"GTA V Model (.mesh)"
+
+![image Info](./images/screenshot1.png "Screenshot")
 
 #### Video:
 https://youtu.be/auGvJESp418

@@ -12,9 +12,9 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 bl_info = {
-    "name" : "GTA V Model importer (.otd)",
+    "name" : "GTA V Model importer",
     "author" : "Lendo Keilbaum",
-    "description" : "Import GTA V models (.otd)",
+    "description" : "Import GTA V models (.mesh)",
     "location": "File > Import",
     "blender" : (2, 80, 0),
     "version" : (0, 0, 1),
